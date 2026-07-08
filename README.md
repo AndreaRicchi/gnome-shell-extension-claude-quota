@@ -35,12 +35,19 @@ Then reload GNOME Shell:
 - **X11:** <kbd>Alt</kbd>+<kbd>F2</kbd>, type `r`, <kbd>Enter</kbd>
 - **Wayland:** log out and back in, or test in a nested session (below)
 
-## Test in a nested session (no logout, safe)
+## Test in a throwaway session (no logout, safe)
+
+`--nested` was removed in GNOME 50; use `--devkit` instead:
 
 ```sh
-dbus-run-session -- gnome-shell --nested --wayland
-# in the nested shell:
-gnome-extensions enable claude-quota@andrearicchi.com
+dbus-run-session -- bash -c '
+  gnome-shell --devkit >/tmp/shell.log 2>&1 &
+  sleep 8
+  gnome-extensions enable claude-quota@andrearicchi.com
+  sleep 5
+  gnome-extensions info claude-quota@andrearicchi.com   # look for State: ACTIVE
+'
+grep -i "JS ERROR\|claude" /tmp/shell.log               # async errors surface here
 ```
 
 ## Run the tests
