@@ -6,6 +6,8 @@ Track your Claude Pro usage from the GNOME top bar.
 - Clicking it opens a menu listing every active limit — session, weekly (all models), and per-model (e.g. Fable) — each with its percentage and reset time.
 - Footer buttons: **Refresh** and **Settings**.
 
+![The panel button and open menu, showing session, weekly all-models, and per-model limits with reset times](screenshots/claude-quota-screenshot.png)
+
 It reads the OAuth token that Claude Code already stores in
 `~/.claude/.credentials.json` and calls the same `GET /api/oauth/usage`
 endpoint that Claude Code's `/usage` command uses. Nothing is sent anywhere
