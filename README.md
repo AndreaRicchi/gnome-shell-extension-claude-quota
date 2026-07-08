@@ -144,9 +144,3 @@ through manual review). The marketplace assigns the integer `version`;
 
 - **Refresh interval** — seconds between polls (default 300; also refreshes on menu open and manual refresh). On an HTTP 429 the interval backs off exponentially and resets on the next successful poll.
 - **Credentials path** — override the default `~/.claude/.credentials.json`.
-
-## Notes / roadmap
-
-Out of scope for v1: automatic token refresh, desktop notifications,
-historical charts, multi-account. The `icons/claude-ai-icon.svg` mark is a
-placeholder.
