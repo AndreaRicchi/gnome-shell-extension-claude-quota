@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # required for softprops/action-gh-release to create the Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gnome-extensions CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnome-shell   # provides the `gnome-extensions` binary
+
+      - name: Check tag matches metadata version-name
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          meta="$(python3 -c 'import json;print(json.load(open("metadata.json"))["version-name"])')"
+          if [ "$tag" != "$meta" ]; then
+            echo "::error::Tag v$tag does not match metadata.json version-name ($meta)"
+            exit 1
+          fi
+
+      - name: Build zip
+        run: |
+          mkdir -p dist   # gnome-extensions pack segfaults if --out-dir is missing
+          gnome-extensions pack --force \
+            --extra-source=usageModel.js \
+            --extra-source=usageClient.js \
+            --extra-source=icons \
+            --out-dir=dist \
+            .
+          unzip -l dist/*.shell-extension.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/claude-quota@andrearicchi.com.shell-extension.zip
+          generate_release_notes: true
