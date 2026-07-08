@@ -1,0 +1,38 @@
+.claude-quota-row {
+    padding: 2px 0;
+    spacing: 2px;
+    min-width: 240px;
+}
+
+.claude-quota-row-label {
+    font-weight: bold;
+}
+
+.claude-quota-row-percent {
+    font-feature-settings: "tnum";
+    font-weight: bold;
+}
+
+.claude-quota-row-percent.claude-quota-high {
+    color: #e06c75;
+}
+
+.claude-quota-row-reset {
+    font-size: 0.85em;
+    color: #9aa0a6;
+}
+
+.claude-quota-status {
+    font-size: 0.85em;
+    color: #9aa0a6;
+    margin-right: 8px;
+}
+
+.claude-quota-footer-button {
+    padding: 6px;
+    border-radius: 8px;
+}
+
+.claude-quota-footer-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
