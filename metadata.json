@@ -1,0 +1,9 @@
+{
+  "uuid": "claude-quota@andrearicchi.com",
+  "name": "Claude Quota",
+  "description": "Track Claude Pro usage from the GNOME top bar: current session percentage in the panel, plus a menu with every active limit (session, weekly, per-model) and reset times.",
+  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "settings-schema": "org.gnome.shell.extensions.claude-quota",
+  "url": "https://github.com/andrearicchi/gnome-shell-extension-claude-quota",
+  "version-name": "0.1.0"
+}

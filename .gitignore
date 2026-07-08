@@ -1,0 +1,4 @@
+# Compiled GSettings schema (regenerate with glib-compile-schemas)
+schemas/gschemas.compiled
+
+*.swp
