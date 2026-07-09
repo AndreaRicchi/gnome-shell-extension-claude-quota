@@ -17,37 +17,51 @@ export function defaultCredentialsPath() {
 
 /**
  * Read the OAuth access token from the credentials file.
+ * Uses async IO so the compositor is never blocked on disk (EGO-X-004).
  * @param {string} [path] override; empty/undefined -> default path
- * @returns {{ok: boolean, token?: string, expiresAt?: number, reason?: string}}
+ * @returns {Promise<{ok: boolean, token?: string, expiresAt?: number, reason?: string}>}
  */
 export function readCredentials(path) {
     const file = Gio.File.new_for_path(
         path && path.length ? path : defaultCredentialsPath()
     );
 
-    let contents;
-    try {
-        const [ok, bytes] = file.load_contents(null);
-        if (!ok)
-            return { ok: false, reason: 'no-file' };
-        contents = new TextDecoder().decode(bytes);
-    } catch (_e) {
-        return { ok: false, reason: 'no-file' };
-    }
+    // Always resolves (never rejects) so fetchUsage's settle guarantee holds.
+    // No cancellable: this small local read matches the old sync semantics and
+    // avoids a cancelled read masquerading as 'no-file'.
+    return new Promise(resolve => {
+        file.load_contents_async(null, (f, result) => {
+            let contents;
+            try {
+                const [ok, bytes] = f.load_contents_finish(result);
+                if (!ok) {
+                    resolve({ ok: false, reason: 'no-file' });
+                    return;
+                }
+                contents = new TextDecoder().decode(bytes);
+            } catch (_e) {
+                resolve({ ok: false, reason: 'no-file' });
+                return;
+            }
 
-    let data;
-    try {
-        data = JSON.parse(contents);
-    } catch (_e) {
-        return { ok: false, reason: 'bad-file' };
-    }
+            let data;
+            try {
+                data = JSON.parse(contents);
+            } catch (_e) {
+                resolve({ ok: false, reason: 'bad-file' });
+                return;
+            }
 
-    const oauth = data?.claudeAiOauth;
-    const token = oauth?.accessToken;
-    if (!token)
-        return { ok: false, reason: 'no-token' };
+            const oauth = data?.claudeAiOauth;
+            const token = oauth?.accessToken;
+            if (!token) {
+                resolve({ ok: false, reason: 'no-token' });
+                return;
+            }
 
-    return { ok: true, token, expiresAt: Number(oauth.expiresAt) || 0 };
+            resolve({ ok: true, token, expiresAt: Number(oauth.expiresAt) || 0 });
+        });
+    });
 }
 
 export class UsageClient {
@@ -64,76 +78,84 @@ export class UsageClient {
      */
     fetchUsage(credentialsPath, cancellable) {
         return new Promise(resolve => {
-            const cred = readCredentials(credentialsPath);
-            if (!cred.ok) {
-                resolve({ ok: false, reason: cred.reason });
-                return;
-            }
-            // Expired tokens are refreshed by Claude Code itself; short-circuit
-            // rather than making a call we know will 401.
-            if (cred.expiresAt && cred.expiresAt < Date.now()) {
-                resolve({ ok: false, reason: 'expired' });
-                return;
-            }
-
-            const msg = Soup.Message.new('GET', USAGE_URL);
-            const headers = msg.get_request_headers();
-            headers.append('Authorization', `Bearer ${cred.token}`);
-            headers.append('anthropic-beta', OAUTH_BETA);
-            headers.append('Content-Type', 'application/json');
-
-            this._session.send_and_read_async(
-                msg,
-                GLib.PRIORITY_DEFAULT,
-                cancellable ?? null,
-                (session, result) => {
-                    // The whole body is wrapped so the Promise ALWAYS settles.
-                    // A throw here (e.g. an unexpected marshalling error) must
-                    // never leave the caller's in-flight guard stuck forever.
-                    try {
-                        let bytes;
-                        try {
-                            bytes = session.send_and_read_finish(result);
-                        } catch (e) {
-                            if (e instanceof GLib.Error &&
-                                e.matches(Gio.io_error_quark(),
-                                    Gio.IOErrorEnum.CANCELLED))
-                                resolve({ ok: false, reason: 'cancelled' });
-                            else
-                                resolve({ ok: false, reason: 'network' });
-                            return;
-                        }
-
-                        // Read the raw guint, not msg.get_status() — the enum
-                        // getter throws on codes it doesn't know (e.g. 429).
-                        const reason = classifyStatus(msg.status_code);
-                        if (reason !== 'ok') {
-                            const out = { ok: false, reason };
-                            // Honor a numeric Retry-After on 429 so backoff never
-                            // polls sooner than the server asks. HTTP-date form
-                            // parses to NaN and is ignored (falls back to backoff).
-                            if (reason === 'rate-limited') {
-                                const ra = Number(msg.get_response_headers()
-                                    .get_one('retry-after'));
-                                if (Number.isFinite(ra) && ra > 0)
-                                    out.retryAfter = ra;
-                            }
-                            resolve(out);
-                            return;
-                        }
-
-                        try {
-                            const text = new TextDecoder().decode(bytes.get_data());
-                            resolve({ ok: true, json: JSON.parse(text) });
-                        } catch (_e) {
-                            resolve({ ok: false, reason: 'parse' });
-                        }
-                    } catch (_e) {
-                        resolve({ ok: false, reason: 'callback' });
-                    }
-                }
-            );
+            // readCredentials never rejects, but guard anyway so the Promise
+            // always settles even if the credential read throws unexpectedly.
+            readCredentials(credentialsPath).then(cred => {
+                this._sendUsageRequest(cred, cancellable, resolve);
+            }).catch(() => resolve({ ok: false, reason: 'no-file' }));
         });
+    }
+
+    /** Issue the authenticated GET once credentials are loaded. */
+    _sendUsageRequest(cred, cancellable, resolve) {
+        if (!cred.ok) {
+            resolve({ ok: false, reason: cred.reason });
+            return;
+        }
+        // Expired tokens are refreshed by Claude Code itself; short-circuit
+        // rather than making a call we know will 401.
+        if (cred.expiresAt && cred.expiresAt < Date.now()) {
+            resolve({ ok: false, reason: 'expired' });
+            return;
+        }
+
+        const msg = Soup.Message.new('GET', USAGE_URL);
+        const headers = msg.get_request_headers();
+        headers.append('Authorization', `Bearer ${cred.token}`);
+        headers.append('anthropic-beta', OAUTH_BETA);
+        headers.append('Content-Type', 'application/json');
+
+        this._session.send_and_read_async(
+            msg,
+            GLib.PRIORITY_DEFAULT,
+            cancellable ?? null,
+            (session, result) => {
+                // The whole body is wrapped so the Promise ALWAYS settles.
+                // A throw here (e.g. an unexpected marshalling error) must
+                // never leave the caller's in-flight guard stuck forever.
+                try {
+                    let bytes;
+                    try {
+                        bytes = session.send_and_read_finish(result);
+                    } catch (e) {
+                        if (e instanceof GLib.Error &&
+                            e.matches(Gio.io_error_quark(),
+                                Gio.IOErrorEnum.CANCELLED))
+                            resolve({ ok: false, reason: 'cancelled' });
+                        else
+                            resolve({ ok: false, reason: 'network' });
+                        return;
+                    }
+
+                    // Read the raw guint, not msg.get_status() — the enum
+                    // getter throws on codes it doesn't know (e.g. 429).
+                    const reason = classifyStatus(msg.status_code);
+                    if (reason !== 'ok') {
+                        const out = { ok: false, reason };
+                        // Honor a numeric Retry-After on 429 so backoff never
+                        // polls sooner than the server asks. HTTP-date form
+                        // parses to NaN and is ignored (falls back to backoff).
+                        if (reason === 'rate-limited') {
+                            const ra = Number(msg.get_response_headers()
+                                .get_one('retry-after'));
+                            if (Number.isFinite(ra) && ra > 0)
+                                out.retryAfter = ra;
+                        }
+                        resolve(out);
+                        return;
+                    }
+
+                    try {
+                        const text = new TextDecoder().decode(bytes.get_data());
+                        resolve({ ok: true, json: JSON.parse(text) });
+                    } catch (_e) {
+                        resolve({ ok: false, reason: 'parse' });
+                    }
+                } catch (_e) {
+                    resolve({ ok: false, reason: 'callback' });
+                }
+            }
+        );
     }
 
     destroy() {
