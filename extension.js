@@ -100,7 +100,7 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
 
         // Refresh when the menu is opened, but debounce so repeatedly opening the
         // menu to check status doesn't keep re-poking the rate-limit window.
-        this.menu.connect('open-state-changed', (_m, open) => {
+        this._menuStateId = this.menu.connect('open-state-changed', (_m, open) => {
             if (!open)
                 return;
             const nowMs = GLib.get_monotonic_time() / 1000;
@@ -111,10 +111,11 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
 
         // React to interval changes from preferences: reset backoff and re-arm
         // at the new base interval.
-        this._settings.connect('changed::refresh-interval', () => {
-            this._backoffLevel = 0;
-            this._scheduleNext(this._baseInterval());
-        });
+        this._settingsChangedId = this._settings.connect(
+            'changed::refresh-interval', () => {
+                this._backoffLevel = 0;
+                this._scheduleNext(this._baseInterval());
+            });
 
         this._setPlaceholder('Loading…');
         // The initial refresh schedules the following tick itself.
@@ -324,6 +325,14 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
         if (this._timerId) {
             GLib.Source.remove(this._timerId);
             this._timerId = 0;
+        }
+        if (this._settingsChangedId) {
+            this._settings.disconnect(this._settingsChangedId);
+            this._settingsChangedId = 0;
+        }
+        if (this._menuStateId) {
+            this.menu.disconnect(this._menuStateId);
+            this._menuStateId = 0;
         }
         this._cancellable?.cancel();
         this._cancellable = null;
