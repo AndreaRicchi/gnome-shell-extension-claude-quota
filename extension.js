@@ -226,7 +226,7 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
             const p = model.sessionPercent;
             let state = null;
             if (p !== null) {
-                if (p > 100)
+                if (p > 99)
                     state = 'error';
                 else if (p > 75)
                     state = 'warn';
