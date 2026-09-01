@@ -1,3 +1,13 @@
+/* The icon's stock system-status-icon padding/margin already provides the gap
+   to the optional percentages label; the box itself adds none. */
+.claude-quota-panel-box {
+    spacing: 0;
+}
+
+.claude-quota-panel-text {
+    font-feature-settings: "tnum";
+}
+
 .claude-quota-row {
     padding: 2px 0;
     spacing: 2px;

@@ -5,9 +5,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 A GNOME Shell 45–50 extension (modern ESM/GJS) that shows Claude Pro usage in the
-top bar: a panel button with the current-session percentage, and a menu listing
-every active limit (session, weekly all-models, per-model like Fable) with reset
-times, plus Refresh and Settings buttons.
+top bar: a panel button with a status icon (normal/warn/error variants driven by
+the session percentage) and, when the `show-panel-percentages` setting is on,
+compact per-limit percentages next to it ("S 15% · W 28% · F 26%"), plus a menu
+listing every active limit (session, weekly all-models, per-model like Fable)
+with reset times, and Refresh and Settings buttons.
 
 ## Commands
 
@@ -97,8 +99,10 @@ automatically.
 ## Settings
 
 GSettings schema `org.gnome.shell.extensions.claude-quota`:
-`refresh-interval` (int seconds, default 300) and `credentials-path` (string, empty
-= default). Editing `schemas/*.gschema.xml` requires re-running
+`refresh-interval` (int seconds, default 300), `credentials-path` (string, empty
+= default), and `show-panel-percentages` (bool, default false — shows
+`formatPanelText`'s compact per-limit string next to the panel icon).
+Editing `schemas/*.gschema.xml` requires re-running
 `glib-compile-schemas schemas/`. A short interval trips the API's 429 rate limit,
 so polling now backs off exponentially on 429 (`backoffDelay` in `usageModel.js`,
 honoring a `Retry-After` header) via the self-rescheduling timer in `extension.js`,

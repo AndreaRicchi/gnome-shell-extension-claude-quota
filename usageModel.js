@@ -55,11 +55,13 @@ export function parseUsage(json) {
     const limits = Array.isArray(json?.limits) ? json.limits : [];
     const rows = limits.map((l, i) => ({
         id: `${l.kind}:${l.scope?.model?.id ?? l.scope?.model?.display_name ?? i}`,
+        kind: l.kind ?? null,
         label: labelForLimit(l),
         group: l.group ?? 'other',
         percent: Math.round(Number(l.percent) || 0),
         resetsAt: l.resets_at ?? null,
         severity: l.severity ?? 'normal',
+        modelName: l.scope?.model?.display_name ?? null,
     }));
 
     const session = rows.find(r => r.group === 'session');
@@ -69,6 +71,40 @@ export function parseUsage(json) {
         : (weeklyAll ? weeklyAll.percent : null);
 
     return { rows, sessionPercent, status: 'ok' };
+}
+
+/**
+ * One-letter tag for a row in the compact panel text: S = session, W = weekly
+ * all-models, first letter of the model name for per-model weekly limits.
+ * Collisions (two models sharing an initial) are accepted for compactness.
+ * @param {object} row one element of parseUsage().rows
+ */
+export function letterForRow(row) {
+    switch (row.kind) {
+    case 'session':
+        return 'S';
+    case 'weekly_all':
+        return 'W';
+    case 'weekly_scoped':
+        // Still a weekly limit when the model name is missing.
+        return row.modelName ? row.modelName[0].toUpperCase() : 'W';
+    default:
+        return String(row.kind || '?')[0].toUpperCase();
+    }
+}
+
+/**
+ * Compact top-bar text for all limits, e.g. "S 15% · W 28% · F 26%".
+ * @param {Array|null} rows parseUsage().rows
+ * @returns {string} '' when there is nothing to show
+ */
+export function formatPanelText(rows) {
+    if (!Array.isArray(rows))
+        return '';
+    return rows
+        .filter(r => Number.isFinite(r.percent))
+        .map(r => `${letterForRow(r)} ${r.percent}%`)
+        .join(' · ');
 }
 
 /**

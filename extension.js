@@ -12,7 +12,7 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import {UsageClient} from './usageClient.js';
-import {parseUsage, formatReset, backoffDelay} from './usageModel.js';
+import {parseUsage, formatReset, formatPanelText, backoffDelay} from './usageModel.js';
 
 // Human-friendly text for each non-ok fetch reason.
 const REASON_TEXT = {
@@ -90,7 +90,21 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
             gicon: this._icons.normal,
             style_class: 'system-status-icon',
         });
-        this.add_child(this._icon);
+        // Optional compact percentages next to the icon (show-panel-percentages).
+        // The hidden label takes no space, so the default look is unchanged.
+        this._panelText = '';
+        this._panelLabel = new St.Label({
+            text: '',
+            visible: false,
+            y_align: Clutter.ActorAlign.CENTER,
+            style_class: 'claude-quota-panel-text',
+        });
+        const panelBox = new St.BoxLayout({
+            style_class: 'claude-quota-panel-box',
+        });
+        panelBox.add_child(this._icon);
+        panelBox.add_child(this._panelLabel);
+        this.add_child(panelBox);
 
         // --- Menu: dynamic rows + footer ---
         this._rowsSection = new PopupMenu.PopupMenuSection();
@@ -112,11 +126,15 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
         }, this);
 
         // React to interval changes from preferences: reset backoff and re-arm
-        // at the new base interval.
-        this._settings.connectObject('changed::refresh-interval', () => {
-            this._backoffLevel = 0;
-            this._scheduleNext(this._baseInterval());
-        }, this);
+        // at the new base interval. The panel-text toggle only flips visibility
+        // of the cached text — no fetch, no timer change.
+        this._settings.connectObject(
+            'changed::refresh-interval', () => {
+                this._backoffLevel = 0;
+                this._scheduleNext(this._baseInterval());
+            },
+            'changed::show-panel-percentages', () => this._syncPanelLabel(),
+            this);
 
         this._setPlaceholder('Loading…');
         // The initial refresh schedules the following tick itself.
@@ -222,6 +240,19 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
         this._icon.gicon = this._icons[state ?? 'normal'] ?? this._icons.normal;
     }
 
+    _setPanelText(text) {
+        this._panelText = text ?? '';
+        this._syncPanelLabel();
+    }
+
+    // Visibility depends on both having text and the setting being enabled, so
+    // toggling the setting can re-show the last computed text instantly.
+    _syncPanelLabel() {
+        this._panelLabel.set_text(this._panelText);
+        this._panelLabel.visible = this._panelText !== '' &&
+            this._settings.get_boolean('show-panel-percentages');
+    }
+
     _render(result) {
         if (result.ok) {
             const model = parseUsage(result.json);
@@ -236,6 +267,7 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
             this._iconState = state;
             this._lastRows = model.rows;
             this._applyIcon(this._iconState);
+            this._setPanelText(formatPanelText(model.rows));
             this._renderRows(model.rows);
             this._statusLabel.set_text(
                 `Updated ${GLib.DateTime.new_now_local().format('%H:%M')}`);
@@ -248,6 +280,7 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
         // replace the display with the error message.
         if (isActionRequired(result.reason)) {
             this._applyIcon('error');
+            this._setPanelText('');
             this._setMessageRow(msg);
             this._statusLabel.set_text('');
             return;
@@ -258,9 +291,11 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
         // row only when we have no good data yet (first load already failing).
         this._applyIcon(this._iconState);
         if (this._lastRows?.length) {
+            this._setPanelText(formatPanelText(this._lastRows));
             this._renderRows(this._lastRows);
             this._statusLabel.set_text(msg);
         } else {
+            this._setPanelText('');
             this._setMessageRow(msg);
             this._statusLabel.set_text('');
         }

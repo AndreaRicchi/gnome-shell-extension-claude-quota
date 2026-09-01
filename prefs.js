@@ -30,6 +30,15 @@ export default class ClaudeQuotaPreferences extends ExtensionPreferences {
         settings.bind('refresh-interval', interval, 'value',
             Gio.SettingsBindFlags.DEFAULT);
 
+        // Compact per-limit percentages next to the panel icon.
+        const panelText = new Adw.SwitchRow({
+            title: 'Show percentages in top bar',
+            subtitle: 'Compact per-limit usage next to the panel icon',
+        });
+        group.add(panelText);
+        settings.bind('show-panel-percentages', panelText, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+
         // Credentials path override (empty = ~/.claude/.credentials.json).
         const path = new Adw.EntryRow({
             title: 'Credentials path (blank = default)',

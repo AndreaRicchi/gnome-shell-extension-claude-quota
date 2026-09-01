@@ -13,5 +13,10 @@
       <summary>Credentials file path</summary>
       <description>Path to Claude Code's credentials JSON. Empty uses ~/.claude/.credentials.json.</description>
     </key>
+    <key name="show-panel-percentages" type="b">
+      <default>false</default>
+      <summary>Show usage percentages in the top bar</summary>
+      <description>When enabled, compact per-limit percentages appear next to the panel icon (e.g. "S 15% · W 28% · F 26%": S = current session, W = weekly all models, other letters = per-model weekly limits). When disabled, only the icon is shown.</description>
+    </key>
   </schema>
 </schemalist>
