@@ -37,6 +37,10 @@ jobs:
             --extra-source=icons \
             --out-dir=dist \
             .
+          # pack always names the zip after the UUID; add the tag so release
+          # assets are distinguishable across versions
+          mv dist/claude-quota@andrearicchi.com.shell-extension.zip \
+             "dist/claude-quota@andrearicchi.com-${GITHUB_REF_NAME}.shell-extension.zip"
           unzip -l dist/*.shell-extension.zip
 
       - name: Set up Python
@@ -61,5 +65,5 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/claude-quota@andrearicchi.com.shell-extension.zip
+          files: dist/*.shell-extension.zip
           generate_release_notes: true
