@@ -1,12 +1,23 @@
-# Claude Quota — GNOME Shell extension
+# <img src="icons/claude-ai-icon.svg" width="38" height="38" alt="" align="top"> Claude Quota
 
-Track your Claude Pro usage from the GNOME top bar.
+Track your Claude Pro/Max usage from the GNOME top bar.
+
+![GNOME Shell 45–50](https://img.shields.io/badge/GNOME_Shell-45–50-informational?logo=gnome)
+[![Shexli](https://github.com/AndreaRicchi/gnome-shell-extension-claude-quota/actions/workflows/shexli.yml/badge.svg)](https://github.com/AndreaRicchi/gnome-shell-extension-claude-quota/actions/workflows/shexli.yml)
+[![Latest release](https://img.shields.io/github/v/release/AndreaRicchi/gnome-shell-extension-claude-quota)](https://github.com/AndreaRicchi/gnome-shell-extension-claude-quota/releases/latest)
+[![License](https://img.shields.io/github/license/AndreaRicchi/gnome-shell-extension-claude-quota)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/AndreaRicchi/gnome-shell-extension-claude-quota?style=social)](https://github.com/AndreaRicchi/gnome-shell-extension-claude-quota/stargazers)
+[![Install on GNOME Extensions](https://img.shields.io/badge/Install_on-GNOME_Extensions-blue?logo=gnome)](https://extensions.gnome.org/extension/10367/claude-quota/)
+[![EGO downloads](https://img.shields.io/gnome-extensions/dt/claude-quota@andrearicchi.com?label=EGO%20downloads)](https://extensions.gnome.org/extension/10367/claude-quota/)
 
 - A panel button shows the Claude icon plus your **current session** usage percentage.
-- Clicking it opens a menu listing every active limit — session, weekly (all models), and per-model (e.g. Fable) — each with its percentage and reset time.
+- Clicking it opens a menu listing every active limit, session, weekly (all models), and per-model (e.g. Fable), each with its percentage and reset time.
+- Optionally, compact per-limit percentages right in the top bar, enable **Show percentages in top bar** in the settings.
 - Footer buttons: **Refresh** and **Settings**.
 
 ![The panel button and open menu, showing session, weekly all-models, and per-model limits with reset times](screenshots/claude-quota-screenshot.png)
+
+![The top bar with compact per-limit percentages next to the Claude icon](screenshots/claude-quota-panel-info.png)
 
 It reads the OAuth token that Claude Code already stores in
 `~/.claude/.credentials.json` and calls the same `GET /api/oauth/usage`
@@ -22,142 +33,40 @@ except Anthropic's API.
 - libsoup 3 (ships with modern GNOME)
 - An active Claude Pro/Max login in Claude Code
 
-## Install (from a release zip)
+## Install
 
-Grab `claude-quota@andrearicchi.com.shell-extension.zip` from the
-[Releases page](https://github.com/andrearicchi/gnome-shell-extension-claude-quota/releases),
-then:
+The recommended way is a one-click install from the
+[GNOME Extensions website](https://extensions.gnome.org/), search for
+[**Claude Quota**](https://extensions.gnome.org/extension/10367/claude-quota/)
 
-```sh
-UUID=claude-quota@andrearicchi.com
-gnome-extensions install --force claude-quota@andrearicchi.com.shell-extension.zip
-gnome-extensions enable "$UUID"
-```
+## Settings
 
-Then reload GNOME Shell (**X11:** <kbd>Alt</kbd>+<kbd>F2</kbd>, `r`, <kbd>Enter</kbd>;
-**Wayland:** log out and back in). `gnome-extensions install` compiles the
-GSettings schema for you.
+![The preferences window with refresh interval, top-bar percentages toggle, and credentials path](screenshots/claude-quota-settings.png)
 
-<details>
-<summary>Manual fallback (no <code>gnome-extensions install</code>)</summary>
+- **Refresh interval**: seconds between polls (default 300; also refreshes on menu open and manual refresh). On an HTTP 429 the interval backs off exponentially and resets on the next successful poll.
+- **Show percentages in top bar**: compact per-limit percentages next to the panel icon (default off).
+- **Credentials path**: override the default `~/.claude/.credentials.json`.
 
-```sh
-UUID=claude-quota@andrearicchi.com
-DEST="$HOME/.local/share/gnome-shell/extensions/$UUID"
-mkdir -p "$DEST"
-unzip -o claude-quota@andrearicchi.com.shell-extension.zip -d "$DEST"
-glib-compile-schemas "$DEST/schemas/"      # zip ships the .xml, not the compiled schema
-gnome-extensions enable "$UUID"
-```
+## Contributing
 
-</details>
-
-Once it's live, the easiest route is the
-[GNOME Extensions marketplace](https://extensions.gnome.org/) — one-click install
-in the browser.
-
-## Install (development)
+Clone, symlink, enable:
 
 ```sh
-UUID=claude-quota@andrearicchi.com
-DEST="$HOME/.local/share/gnome-shell/extensions/$UUID"
-ln -s "$PWD" "$DEST"                 # or copy the folder
-glib-compile-schemas "$DEST/schemas/"
-gnome-extensions enable "$UUID"
+git clone https://github.com/AndreaRicchi/gnome-shell-extension-claude-quota.git
+cd gnome-shell-extension-claude-quota
+ln -s "$PWD" ~/.local/share/gnome-shell/extensions/claude-quota@andrearicchi.com
+glib-compile-schemas schemas/
+gnome-extensions enable claude-quota@andrearicchi.com
 ```
 
-Then reload GNOME Shell:
+Reload the Shell to pick up changes (**X11:** <kbd>Alt</kbd>+<kbd>F2</kbd>, `r`,
+<kbd>Enter</kbd>; **Wayland:** log out and back in), or exercise the extension in a
+throwaway session with `dbus-run-session -- gnome-shell --devkit` (GNOME 50's
+replacement for `--nested`).
 
-- **X11:** <kbd>Alt</kbd>+<kbd>F2</kbd>, type `r`, <kbd>Enter</kbd>
-- **Wayland:** log out and back in, or test in a nested session (below)
-
-## Test in a throwaway session (no logout, safe)
-
-`--nested` was removed in GNOME 50; use `--devkit` instead:
-
-```sh
-dbus-run-session -- bash -c '
-  gnome-shell --devkit >/tmp/shell.log 2>&1 &
-  sleep 8
-  gnome-extensions enable claude-quota@andrearicchi.com
-  sleep 5
-  gnome-extensions info claude-quota@andrearicchi.com   # look for State: ACTIVE
-'
-grep -i "JS ERROR\|claude" /tmp/shell.log               # async errors surface here
-```
-
-## Run the tests
+Run the tests:
 
 ```sh
 gjs -m test/usageModel-test.js   # pure logic (offline, uses captured fixture)
 gjs -m test/live-fetch.js        # live end-to-end against your account
 ```
-
-## Releasing
-
-### Build a release zip
-
-```sh
-mkdir -p dist       # pack SEGFAULTS if --out-dir is missing
-gnome-extensions pack --force \
-  --extra-source=usageModel.js \
-  --extra-source=usageClient.js \
-  --extra-source=icons \
-  --out-dir=dist \
-  .
-```
-
-This produces `dist/claude-quota@andrearicchi.com.shell-extension.zip`. `pack`
-only bundles `extension.js`, `prefs.js`, `stylesheet.css`, `metadata.json`, and
-`schemas/` on its own — the `--extra-source` flags are what pull in the two extra
-JS modules and the icons, without which the packaged extension breaks at runtime.
-
-Verify the bundle is complete:
-
-```sh
-unzip -l dist/*.shell-extension.zip
-# expect: extension.js, prefs.js, usageModel.js, usageClient.js, stylesheet.css,
-#         metadata.json, icons/*.svg, schemas/*.gschema.xml
-```
-
-(The zip ships the schema `.xml`; `gnome-extensions install` and the marketplace
-compile it on their side.)
-
-### Run the marketplace linter
-
-extensions.gnome.org runs the [Shexli](https://pypi.org/project/shexli/) static
-analyzer on every upload; run it on the zip first to catch review issues early:
-
-```sh
-python3 -m venv venv && . venv/bin/activate
-pip install -U shexli 'tree-sitter<0.26'   # without the pin, tree-sitter 0.26 segfaults
-shexli dist/*.shell-extension.zip
-```
-
-CI runs the same check on every push/PR and before each release (see
-`.github/workflows/shexli.yml`). Note shexli always exits 0 even with findings,
-so CI gates on `summary.status` in its `--format json` output.
-
-### Cut a GitHub release
-
-Pushing a `v*` tag builds the zip in CI and attaches it to a GitHub Release
-(see `.github/workflows/release.yml`):
-
-```sh
-git tag v0.1.0        # match version-name in metadata.json
-git push origin v0.1.0
-```
-
-The zip then appears on the repo's **Releases** page.
-
-### Publish to the GNOME Extensions marketplace
-
-Build the zip as above, then upload it at
-<https://extensions.gnome.org/upload/> (login required; every version goes
-through manual review). The marketplace assigns the integer `version`;
-`metadata.json`'s `version-name` stays the human-facing string.
-
-## Settings
-
-- **Refresh interval** — seconds between polls (default 300; also refreshes on menu open and manual refresh). On an HTTP 429 the interval backs off exponentially and resets on the next successful poll.
-- **Credentials path** — override the default `~/.claude/.credentials.json`.
