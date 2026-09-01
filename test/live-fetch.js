@@ -3,6 +3,10 @@
 // Run: gjs -m test/live-fetch.js
 // Reads your real token from ~/.claude/.credentials.json and hits the API.
 
+// Pin Soup here: outside the Shell nothing preloads it, and the unversioned
+// import in usageClient.js fails under plain gjs if two typelibs are installed.
+import 'gi://Soup?version=3.0';
+
 import GLib from 'gi://GLib';
 import System from 'system';
 
