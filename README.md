@@ -123,6 +123,21 @@ unzip -l dist/*.shell-extension.zip
 (The zip ships the schema `.xml`; `gnome-extensions install` and the marketplace
 compile it on their side.)
 
+### Run the marketplace linter
+
+extensions.gnome.org runs the [Shexli](https://pypi.org/project/shexli/) static
+analyzer on every upload; run it on the zip first to catch review issues early:
+
+```sh
+python3 -m venv venv && . venv/bin/activate
+pip install -U shexli 'tree-sitter<0.26'   # without the pin, tree-sitter 0.26 segfaults
+shexli dist/*.shell-extension.zip
+```
+
+CI runs the same check on every push/PR and before each release (see
+`.github/workflows/shexli.yml`). Note shexli always exits 0 even with findings,
+so CI gates on `summary.status` in its `--format json` output.
+
 ### Cut a GitHub release
 
 Pushing a `v*` tag builds the zip in CI and attaches it to a GitHub Release

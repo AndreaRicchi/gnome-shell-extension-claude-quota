@@ -24,6 +24,12 @@ gjs -m test/live-fetch.js
 # catches typos). node only checks syntax, it does not run the code.
 node --check extension.js
 
+# Marketplace linter (CI gates every push/PR and release on this — see
+# .github/workflows/shexli.yml). The tree-sitter pin is required: 0.26 segfaults.
+# shexli always exits 0; CI parses `--format json` summary.status to fail.
+pip install -U shexli 'tree-sitter<0.26'
+shexli dist/*.shell-extension.zip
+
 # Install for development (symlink so edits are live) + compile settings schema
 UUID=claude-quota@andrearicchi.com
 ln -s "$PWD" "$HOME/.local/share/gnome-shell/extensions/$UUID"

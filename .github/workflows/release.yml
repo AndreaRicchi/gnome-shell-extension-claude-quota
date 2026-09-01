@@ -39,6 +39,25 @@ jobs:
             .
           unzip -l dist/*.shell-extension.zip
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run Shexli static analyzer
+        run: |
+          # tree-sitter 0.26 is ABI-incompatible with tree-sitter-javascript 0.25
+          # and segfaults; pin below it until shexli's deps catch up.
+          pip install -U shexli 'tree-sitter<0.26'
+          shexli dist/*.shell-extension.zip          # human-readable report in the log
+          shexli --format json dist/*.shell-extension.zip > shexli.json
+          status=$(jq -r '.summary.status' shexli.json)
+          if [ "$status" != "clean" ]; then
+            count=$(jq -r '.summary.finding_count' shexli.json)
+            echo "::error::Shexli reported $count finding(s) — see the report above"
+            exit 1
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
