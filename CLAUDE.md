@@ -20,9 +20,10 @@ gjs -m test/usageModel-test.js
 # Live end-to-end — reads the real token and hits the API (200 path)
 gjs -m test/live-fetch.js
 
-# Syntax check without the Shell (shell-resource imports won't resolve, but
-# catches typos). node only checks syntax, it does not run the code.
-node --check extension.js
+# Syntax check without the Shell. node is not installed on this machine; gjs
+# parses the file, so a SyntaxError is a real error, while an ImportError on
+# resource:///…shell… means the parse succeeded (expected for extension.js).
+gjs -m extension.js
 
 # Marketplace linter (CI gates every push/PR and release on this — see
 # .github/workflows/shexli.yml). The tree-sitter pin is required: 0.26 segfaults.
@@ -58,7 +59,25 @@ dbus-run-session -- bash -c '
 
 `State: ACTIVE` only proves `enable()` didn't throw — async errors (in a refresh
 or `_render`) surface later. Always also `grep -i "JS ERROR\|claude" /tmp/shell.log`.
-For live-session bugs the real evidence is `journalctl --user -b 0 | grep -i claude`.
+Repeated `JS ERROR: TypeError: can't access property "height", _monitor is null`
+lines are headless-devkit noise: they appear before any extension is enabled, so
+do not attribute them to this code. For live-session bugs the real evidence is
+`journalctl --user -b 0 | grep -i claude`.
+
+Before any runtime check, confirm the install path is still the symlink into the
+repo: an install from EGO replaces it with a plain directory, and the devkit
+session then runs stale code while the repo edits look ignored. Re-link before
+testing.
+
+## README audience
+
+The README is for end users, styled after kem-a/kiwi-menu: icon in the H1, a
+shields.io badge row, screenshots inline. The EGO marketplace install comes first
+and is the recommended one; there are no release-zip install steps, one terse
+Contributing section (symlink install + tests) and no Releasing section.
+Maintainer workflows — pack, shexli, tagging, EGO upload — live in this file
+only. EGO badge links keep the `XXXX` placeholder id in HTML comments until the
+marketplace listing is approved.
 
 ## Architecture
 
