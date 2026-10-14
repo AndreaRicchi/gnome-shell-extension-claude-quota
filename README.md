@@ -2,7 +2,7 @@
 
 Track your Claude Pro/Max usage from the GNOME top bar.
 
-![GNOME Shell 45–50](https://img.shields.io/badge/GNOME_Shell-45–50-informational?logo=gnome)
+![GNOME Shell 45–51](https://img.shields.io/badge/GNOME_Shell-45–51-informational?logo=gnome)
 [![Shexli](https://github.com/AndreaRicchi/gnome-shell-extension-claude-quota/actions/workflows/shexli.yml/badge.svg)](https://github.com/AndreaRicchi/gnome-shell-extension-claude-quota/actions/workflows/shexli.yml)
 [![Latest release](https://img.shields.io/github/v/release/AndreaRicchi/gnome-shell-extension-claude-quota)](https://github.com/AndreaRicchi/gnome-shell-extension-claude-quota/releases/latest)
 [![License](https://img.shields.io/github/license/AndreaRicchi/gnome-shell-extension-claude-quota)](LICENSE)
@@ -29,7 +29,7 @@ except Anthropic's API.
 
 ## Requirements
 
-- GNOME Shell 45–50
+- GNOME Shell 45–51
 - libsoup 3 (ships with modern GNOME)
 - An active Claude Pro/Max login in Claude Code
 
