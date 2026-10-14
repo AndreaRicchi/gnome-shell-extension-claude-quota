@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A GNOME Shell 45–50 extension (modern ESM/GJS) that shows Claude Pro usage in the
+A GNOME Shell 45–51 extension (modern ESM/GJS) that shows Claude Pro usage in the
 top bar: a panel button with a status icon (normal/warn/error variants driven by
 the session percentage) and, when the `show-panel-percentages` setting is on,
 compact per-limit percentages next to it ("S 15% · W 28% · F 26%"), plus a menu
