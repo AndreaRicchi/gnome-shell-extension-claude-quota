@@ -10,6 +10,7 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import * as Config from 'resource:///org/gnome/shell/misc/config.js';
 
 import {UsageClient} from './usageClient.js';
 import {parseUsage, formatReset, formatPanelText, backoffDelay} from './usageModel.js';
@@ -52,6 +53,12 @@ function reasonText(reason) {
 // re-polling the rolling-window /usage limiter on every menu open resets its
 // window and prevents recovery. The explicit Refresh button is never debounced.
 const MENU_REFRESH_DEBOUNCE_MS = 60000;
+
+// St.BoxLayout's `vertical` was deprecated for `orientation` in GNOME 48 and
+// removed in 51; 45–47 only have `vertical`.
+const VERTICAL_BOX = parseInt(Config.PACKAGE_VERSION, 10) >= 48
+    ? {orientation: Clutter.Orientation.VERTICAL}
+    : {vertical: true};
 
 const ClaudeQuotaIndicator = GObject.registerClass(
 class ClaudeQuotaIndicator extends PanelMenu.Button {
@@ -318,7 +325,7 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
         });
 
         const vbox = new St.BoxLayout({
-            vertical: true,
+            ...VERTICAL_BOX,
             x_expand: true,
             style_class: 'claude-quota-row',
         });
