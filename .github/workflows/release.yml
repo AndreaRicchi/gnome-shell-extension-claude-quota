@@ -55,9 +55,11 @@ jobs:
           pip install -U shexli 'tree-sitter<0.26'
           shexli dist/*.shell-extension.zip          # human-readable report in the log
           shexli --format json dist/*.shell-extension.zip > shexli.json
-          status=$(jq -r '.summary.status' shexli.json)
-          if [ "$status" != "clean" ]; then
-            count=$(jq -r '.summary.finding_count' shexli.json)
+          # shexli 0.2.1 treats any shell-version above 50 as an implausible
+          # future release (EGO-M-004), so "51" always fails; skip that rule
+          # until a shexli release knows GNOME 51.
+          count=$(jq '[.findings[] | select(.rule_id != "EGO-M-004")] | length' shexli.json)
+          if [ "$count" -ne 0 ]; then
             echo "::error::Shexli reported $count finding(s) — see the report above"
             exit 1
           fi

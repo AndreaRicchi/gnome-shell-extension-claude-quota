@@ -27,7 +27,8 @@ gjs -m extension.js
 
 # Marketplace linter (CI gates every push/PR and release on this — see
 # .github/workflows/shexli.yml). The tree-sitter pin is required: 0.26 segfaults.
-# shexli always exits 0; CI parses `--format json` summary.status to fail.
+# shexli always exits 0; CI counts `--format json` findings, minus the EGO-M-004
+# false positive on shell-version 51, to fail.
 pip install -U shexli 'tree-sitter<0.26'
 shexli dist/*.shell-extension.zip
 
