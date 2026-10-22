@@ -39,6 +39,15 @@ export default class ClaudeQuotaPreferences extends ExtensionPreferences {
         settings.bind('show-panel-percentages', panelText, 'active',
             Gio.SettingsBindFlags.DEFAULT);
 
+        // Expected usage per limit; ahead-of-pace limits turn yellow.
+        const pace = new Adw.SwitchRow({
+            title: 'Show usage pace',
+            subtitle: 'Yellow when a limit is 10+ points above a steady rate',
+        });
+        group.add(pace);
+        settings.bind('show-pace', pace, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+
         // Credentials path override (empty = ~/.claude/.credentials.json).
         const path = new Adw.EntryRow({
             title: 'Credentials path (blank = default)',

@@ -11,7 +11,7 @@ import GLib from 'gi://GLib';
 import System from 'system';
 
 import {UsageClient} from '../usageClient.js';
-import {parseUsage, formatReset} from '../usageModel.js';
+import {parseUsage, formatReset, paceForRow} from '../usageModel.js';
 
 const loop = GLib.MainLoop.new(null, false);
 const client = new UsageClient();
@@ -27,8 +27,13 @@ client.fetchUsage('', null).then(result => {
 
     const model = parseUsage(result.json);
     print(`Panel would show: ${model.sessionPercent}%\n`);
-    for (const row of model.rows)
-        print(`  ${row.label.padEnd(24)} ${String(row.percent).padStart(3)}%   ${formatReset(row.resetsAt)}`);
+    for (const row of model.rows) {
+        const pace = paceForRow(row);
+        const paceText = pace
+            ? `   expected ${pace.expected}%${pace.ahead ? ' (ahead)' : ''}`
+            : '';
+        print(`  ${row.label.padEnd(24)} ${String(row.percent).padStart(3)}%   ${formatReset(row.resetsAt)}${paceText}`);
+    }
 
     client.destroy();
     loop.quit();

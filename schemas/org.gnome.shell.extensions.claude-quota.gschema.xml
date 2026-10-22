@@ -18,5 +18,10 @@
       <summary>Show usage percentages in the top bar</summary>
       <description>When enabled, compact per-limit percentages appear next to the panel icon (e.g. "S 15% · W 28% · F 26%": S = current session, W = weekly all models, other letters = per-model weekly limits). When disabled, only the icon is shown.</description>
     </key>
+    <key name="show-pace" type="b">
+      <default>true</default>
+      <summary>Show usage pace</summary>
+      <description>When enabled, each limit shows the usage expected by now if its window (5 hours for the session, 7 days for weekly limits) were used at a steady rate, and turns yellow when actual usage is 10 or more points above it. The weekly pace assumes round-the-clock use, so working only on weekdays reads as ahead in the first working days after the weekly reset.</description>
+    </key>
   </schema>
 </schemalist>

@@ -13,7 +13,8 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Config from 'resource:///org/gnome/shell/misc/config.js';
 
 import {UsageClient} from './usageClient.js';
-import {parseUsage, formatReset, formatPanelText, backoffDelay} from './usageModel.js';
+import {parseUsage, formatReset, formatPanelText, formatPanelMarkup,
+    paceForRow, backoffDelay} from './usageModel.js';
 
 // Human-friendly text for each non-ok fetch reason.
 const REASON_TEXT = {
@@ -99,7 +100,10 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
         });
         // Optional compact percentages next to the icon (show-panel-percentages).
         // The hidden label takes no space, so the default look is unchanged.
-        this._panelText = '';
+        this._panelRows = null;
+        // Rows currently listed in the menu (null while it shows a message),
+        // so the pace toggle can redraw them without a fetch.
+        this._menuRows = null;
         this._panelLabel = new St.Label({
             text: '',
             visible: false,
@@ -133,14 +137,19 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
         }, this);
 
         // React to interval changes from preferences: reset backoff and re-arm
-        // at the new base interval. The panel-text toggle only flips visibility
-        // of the cached text — no fetch, no timer change.
+        // at the new base interval. The panel-text and pace toggles only
+        // redraw the cached rows — no fetch, no timer change.
         this._settings.connectObject(
             'changed::refresh-interval', () => {
                 this._backoffLevel = 0;
                 this._scheduleNext(this._baseInterval());
             },
             'changed::show-panel-percentages', () => this._syncPanelLabel(),
+            'changed::show-pace', () => {
+                this._syncPanelLabel();
+                if (this._menuRows)
+                    this._renderRows(this._menuRows);
+            },
             this);
 
         this._setPlaceholder('Loading…');
@@ -247,16 +256,21 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
         this._icon.gicon = this._icons[state ?? 'normal'] ?? this._icons.normal;
     }
 
-    _setPanelText(text) {
-        this._panelText = text ?? '';
+    _setPanelRows(rows) {
+        this._panelRows = rows ?? null;
         this._syncPanelLabel();
     }
 
     // Visibility depends on both having text and the setting being enabled, so
-    // toggling the setting can re-show the last computed text instantly.
+    // toggling the setting can re-show the last rows instantly. Always set as
+    // markup: St.Label.set_text would turn use-markup off for later updates.
     _syncPanelLabel() {
-        this._panelLabel.set_text(this._panelText);
-        this._panelLabel.visible = this._panelText !== '' &&
+        const text = formatPanelText(this._panelRows);
+        this._panelLabel.clutter_text.set_markup(
+            this._settings.get_boolean('show-pace')
+                ? formatPanelMarkup(this._panelRows)
+                : GLib.markup_escape_text(text, -1));
+        this._panelLabel.visible = text !== '' &&
             this._settings.get_boolean('show-panel-percentages');
     }
 
@@ -274,7 +288,7 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
             this._iconState = state;
             this._lastRows = model.rows;
             this._applyIcon(this._iconState);
-            this._setPanelText(formatPanelText(model.rows));
+            this._setPanelRows(model.rows);
             this._renderRows(model.rows);
             this._statusLabel.set_text(
                 `Updated ${GLib.DateTime.new_now_local().format('%H:%M')}`);
@@ -287,7 +301,7 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
         // replace the display with the error message.
         if (isActionRequired(result.reason)) {
             this._applyIcon('error');
-            this._setPanelText('');
+            this._setPanelRows(null);
             this._setMessageRow(msg);
             this._statusLabel.set_text('');
             return;
@@ -298,27 +312,31 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
         // row only when we have no good data yet (first load already failing).
         this._applyIcon(this._iconState);
         if (this._lastRows?.length) {
-            this._setPanelText(formatPanelText(this._lastRows));
+            this._setPanelRows(this._lastRows);
             this._renderRows(this._lastRows);
             this._statusLabel.set_text(msg);
         } else {
-            this._setPanelText('');
+            this._setPanelRows(null);
             this._setMessageRow(msg);
             this._statusLabel.set_text('');
         }
     }
 
     _renderRows(rows) {
-        this._rowsSection.removeAll();
         if (!rows.length) {
             this._setMessageRow('No usage data available');
             return;
         }
+        this._rowsSection.removeAll();
+        this._menuRows = rows;
+        const showPace = this._settings.get_boolean('show-pace');
         for (const row of rows)
-            this._rowsSection.addMenuItem(this._makeRow(row));
+            this._rowsSection.addMenuItem(
+                this._makeRow(row, showPace ? paceForRow(row) : null));
     }
 
-    _makeRow(row) {
+    // pace: paceForRow() result, or null to show the row without one.
+    _makeRow(row, pace) {
         const item = new PopupMenu.PopupBaseMenuItem({
             reactive: false,
             can_focus: false,
@@ -340,13 +358,17 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
             text: `${row.percent}%`,
             style_class: 'claude-quota-row-percent',
         });
+        // Near the limit (red) outranks ahead of pace (yellow).
         if (row.percent >= 90)
             pct.add_style_class_name('claude-quota-high');
+        else if (pace?.ahead)
+            pct.add_style_class_name('claude-quota-ahead');
         top.add_child(pct);
 
         vbox.add_child(top);
+        const reset = formatReset(row.resetsAt);
         vbox.add_child(new St.Label({
-            text: formatReset(row.resetsAt),
+            text: pace ? `${reset} · expected ${pace.expected}%` : reset,
             style_class: 'claude-quota-row-reset',
         }));
 
@@ -356,6 +378,7 @@ class ClaudeQuotaIndicator extends PanelMenu.Button {
 
     _setMessageRow(text) {
         this._rowsSection.removeAll();
+        this._menuRows = null;
         const item = new PopupMenu.PopupMenuItem(text, {reactive: false});
         this._rowsSection.addMenuItem(item);
     }

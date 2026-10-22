@@ -107,6 +107,82 @@ export function formatPanelText(rows) {
         .join(' · ');
 }
 
+// Length of each limit's quota window. The API reports when a window resets,
+// never when it opened; the lengths come from the legacy `five_hour` /
+// `seven_day` keys. Kinds missing here get no pace.
+const WINDOW_SECONDS = {
+    session: 5 * 3600,
+    weekly_all: 7 * 86400,
+    weekly_scoped: 7 * 86400,
+};
+
+// Points above the steady-rate expectation before a limit counts as ahead.
+// The weekly pace assumes round-the-clock use, so a small lead is normal.
+const PACE_MARGIN = 10;
+
+// Panel markup colour for an ahead limit; keep in sync with
+// .claude-quota-ahead in stylesheet.css.
+const PACE_AHEAD_COLOR = '#e5c07b';
+
+/**
+ * Usage expected by now if the window's quota were consumed at a steady rate,
+ * i.e. the elapsed share of the window.
+ * @param {object} row one element of parseUsage().rows
+ * @param {GLib.DateTime} [now] defaults to current local time
+ * @returns {number|null} 0–100, or null for an unknown window or a past or
+ *   missing reset
+ */
+export function expectedPercent(row, now = GLib.DateTime.new_now_local()) {
+    const windowSeconds = WINDOW_SECONDS[row?.kind];
+    if (!windowSeconds || !row.resetsAt)
+        return null;
+
+    const reset = GLib.DateTime.new_from_iso8601(row.resetsAt, null);
+    if (!reset)
+        return null;
+
+    const remaining = reset.to_unix() - now.to_unix();
+    if (remaining <= 0)
+        return null;
+    const elapsed = Math.max(0, windowSeconds - remaining);
+    return Math.round(elapsed / windowSeconds * 100);
+}
+
+/**
+ * Compare a row's usage with its steady-rate expectation.
+ * @param {object} row one element of parseUsage().rows
+ * @param {GLib.DateTime} [now] defaults to current local time
+ * @returns {{expected: number, ahead: boolean}|null} null when there is no pace
+ */
+export function paceForRow(row, now = GLib.DateTime.new_now_local()) {
+    const expected = expectedPercent(row, now);
+    if (expected === null || !Number.isFinite(row.percent))
+        return null;
+    return { expected, ahead: row.percent - expected >= PACE_MARGIN };
+}
+
+/**
+ * formatPanelText as Pango markup, with limits ahead of pace coloured.
+ * @param {Array|null} rows parseUsage().rows
+ * @param {GLib.DateTime} [now] defaults to current local time
+ * @returns {string} '' when there is nothing to show
+ */
+export function formatPanelMarkup(rows, now = GLib.DateTime.new_now_local()) {
+    if (!Array.isArray(rows))
+        return '';
+    return rows
+        .filter(r => Number.isFinite(r.percent))
+        .map(r => {
+            // Model names come from the API: escape before building markup.
+            const text = GLib.markup_escape_text(
+                `${letterForRow(r)} ${r.percent}%`, -1);
+            return paceForRow(r, now)?.ahead
+                ? `<span foreground="${PACE_AHEAD_COLOR}">${text}</span>`
+                : text;
+        })
+        .join(' · ');
+}
+
 /**
  * Next poll delay (seconds) given the base interval and consecutive 429 count.
  * Doubles the interval per consecutive rate-limit, never below a Retry-After

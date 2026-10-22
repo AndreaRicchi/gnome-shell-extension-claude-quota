@@ -13,11 +13,16 @@ Track your Claude Pro/Max usage from the GNOME top bar.
 - A panel button shows the Claude icon plus your **current session** usage percentage.
 - Clicking it opens a menu listing every active limit, session, weekly (all models), and per-model (e.g. Fable), each with its percentage and reset time.
 - Optionally, compact per-limit percentages right in the top bar, enable **Show percentages in top bar** in the settings.
+- Usage pace: each limit also shows how much you would have used by now at a steady rate, and turns yellow when you are 10 or more points ahead of it, i.e. on track to hit the limit before it resets.
 - Footer buttons: **Refresh** and **Settings**.
 
-![The panel button and open menu, showing session, weekly all-models, and per-model limits with reset times](screenshots/claude-quota-screenshot.png)
+| Usage pace off | Usage pace on |
+| --- | --- |
+| ![The panel button and open menu, showing session, weekly all-models, and per-model limits with reset times](screenshots/claude-quota-screenshot.png) | ![The open menu with usage pace: the session at 52% against 40% expected is highlighted yellow, the weekly limits are below their expected 45%](screenshots/claude-quota-pace-limit.png) |
 
-![The top bar with compact per-limit percentages next to the Claude icon](screenshots/claude-quota-panel-info.png)
+| Percentages in top bar |
+| --- |
+| ![The top bar with compact per-limit percentages next to the Claude icon](screenshots/claude-quota-panel-info.png) |
 
 It reads the OAuth token that Claude Code already stores in
 `~/.claude/.credentials.json` and calls the same `GET /api/oauth/usage`
@@ -41,10 +46,11 @@ The recommended way is a one-click install from the
 
 ## Settings
 
-![The preferences window with refresh interval, top-bar percentages toggle, and credentials path](screenshots/claude-quota-settings.png)
+![The preferences window with refresh interval, top-bar percentages and usage pace toggles, and credentials path](screenshots/claude-quota-settings.png)
 
 - **Refresh interval**: seconds between polls (default 300; also refreshes on menu open and manual refresh). On an HTTP 429 the interval backs off exponentially and resets on the next successful poll.
 - **Show percentages in top bar**: compact per-limit percentages next to the panel icon (default off).
+- **Show usage pace**: the "expected" figure under each limit and the yellow highlight, in the menu and in the top-bar percentages (default on). The weekly pace assumes round-the-clock use, so if you only work weekdays you will read as ahead in the first working days after the weekly reset.
 - **Credentials path**: override the default `~/.claude/.credentials.json`.
 
 ## Contributing

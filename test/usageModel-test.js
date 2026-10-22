@@ -7,7 +7,8 @@ import Gio from 'gi://Gio';
 import System from 'system';
 
 import {parseUsage, formatReset, labelForLimit, classifyStatus, backoffDelay,
-    letterForRow, formatPanelText} from '../usageModel.js';
+    letterForRow, formatPanelText, expectedPercent, paceForRow,
+    formatPanelMarkup} from '../usageModel.js';
 
 let failures = 0;
 function check(name, cond) {
@@ -99,6 +100,61 @@ eq('non-finite percent skipped',
 eq('null percent coerced to 0',
     formatPanelText(parseUsage({limits: [{kind: 'session', percent: null}]}).rows),
     'S 0%');
+
+// --- pace: expected usage from the elapsed share of each window ---
+// Fixture: session resets 16:00 UTC (5h window, opened 11:00), weekly resets
+// 2026-07-09T22:00 UTC (7d window, opened 2026-07-02T22:00).
+const at = s => GLib.DateTime.new_from_iso8601(s, null);
+const session = model.rows.find(r => r.kind === 'session');
+const weekly = model.rows.find(r => r.kind === 'weekly_all');
+const scoped = model.rows.find(r => r.kind === 'weekly_scoped');
+
+eq('session 2h into 5h -> 40% expected',
+    expectedPercent(session, at('2026-07-08T13:00:00Z')), 40);
+eq('session window just opened -> 0%',
+    expectedPercent(session, at('2026-07-08T11:00:00Z')), 0);
+eq('reset further out than the window clamps to 0%',
+    expectedPercent(session, at('2026-07-08T10:00:00Z')), 0);
+eq('weekly 3.5d into 7d -> 50% expected',
+    expectedPercent(weekly, at('2026-07-06T10:00:00Z')), 50);
+eq('scoped weekly uses the 7d window',
+    expectedPercent(scoped, at('2026-07-06T10:00:00Z')), 50);
+eq('past reset -> null',
+    expectedPercent(session, at('2026-07-08T16:00:01Z')), null);
+eq('null resetsAt -> null',
+    expectedPercent({...session, resetsAt: null}, at('2026-07-08T13:00:00Z')), null);
+eq('unparseable resetsAt -> null',
+    expectedPercent({...session, resetsAt: 'soon'}, at('2026-07-08T13:00:00Z')), null);
+eq('unknown kind -> null',
+    expectedPercent({...session, kind: 'some_new_kind'}, at('2026-07-08T13:00:00Z')),
+    null);
+
+// The issue's own example: 50% used, 40% expected -> ahead.
+const twoHoursIn = at('2026-07-08T13:00:00Z');
+eq('10 points ahead -> ahead',
+    paceForRow({...session, percent: 50}, twoHoursIn)?.ahead, true);
+eq('9 points ahead -> not ahead',
+    paceForRow({...session, percent: 49}, twoHoursIn)?.ahead, false);
+eq('behind -> not ahead',
+    paceForRow({...session, percent: 15}, twoHoursIn)?.ahead, false);
+eq('pace carries expected', paceForRow(session, twoHoursIn)?.expected, 40);
+eq('no window -> no pace',
+    paceForRow({...session, kind: 'some_new_kind'}, twoHoursIn), null);
+eq('non-finite percent -> no pace',
+    paceForRow({...session, percent: NaN}, twoHoursIn), null);
+
+// --- panel markup: ahead segments wrapped in a colour span, rest escaped ---
+// 13:00 UTC: session 15% vs 40% expected, weekly 28% vs 66%: nothing ahead.
+eq('markup with nothing ahead equals plain text',
+    formatPanelMarkup(model.rows, twoHoursIn), 'S 15% · W 28% · F 26%');
+eq('ahead segment wrapped',
+    formatPanelMarkup([{...session, percent: 50}, weekly], twoHoursIn),
+    '<span foreground="#e5c07b">S 50%</span> · W 28%');
+eq('model letter escaped',
+    formatPanelMarkup([{kind: 'weekly_scoped', modelName: '<b>', percent: 5}],
+        twoHoursIn),
+    '&lt; 5%');
+eq('null rows -> empty markup', formatPanelMarkup(null, twoHoursIn), '');
 
 // --- backoffDelay: 429 backoff math ---
 eq('backoff level 0 -> base', backoffDelay(300, 0), 300);

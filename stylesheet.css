@@ -27,6 +27,12 @@
     color: #e06c75;
 }
 
+/* Ahead of the steady-rate pace; keep in sync with PACE_AHEAD_COLOR in
+   usageModel.js (the panel label colours it through markup, not CSS). */
+.claude-quota-row-percent.claude-quota-ahead {
+    color: #e5c07b;
+}
+
 .claude-quota-row-reset {
     font-size: 0.85em;
     color: #9aa0a6;
